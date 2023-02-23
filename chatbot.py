@@ -1,8 +1,5 @@
 import discord
 import os
-from pygments import highlight
-from pygments.lexers import PythonLexer
-from pygments.formatters import HtmlFormatter
 
 intents = discord.Intents.default()
 intents.members = True
