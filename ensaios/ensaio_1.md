@@ -1,2 +1,2 @@
-run nome_canal:
-run IP -v versao: IP deve ser no formato xxx.xxx.xxx.xxx\yy default e v4 
+Para a segunda entrega do projeto, escolhi fazer o comando !run para que o usuario do meu bot possa pegar informacoes sobre um endereço de IP qualquer como pais, região, ASN, dominio e nome da organização dona do ASN. Este funcionalidade tem como principal objetivo ajudar estudantes de computação a entenderem um pouco mais sobre protocolos de rede, sobre os dominios da internet e empresas que cuidam desses dominios.
+Apesar de não ter sido dificil concluir esta atividade, a logica do programa e o design do bot deram um pouco de trabalho.
