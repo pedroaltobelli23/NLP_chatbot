@@ -3,7 +3,7 @@ import os
 import re
 from dotenv import load_dotenv,find_dotenv
 from discord.ext import commands
-from functions import pretty_IP,address_get,MyHelp,inverted_index,search_words,web_scrapping,pretty_search,pretty_not_founded
+from functions import pretty_IP,address_get,MyHelp,inverted_index,search_words,web_scrapping,pretty_search,pretty_not_founded,wn_search_words,pretty_wn,URL_validate
 import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
@@ -13,8 +13,9 @@ import pickle
 load_dotenv(find_dotenv())
 
 TOKEN = os.getenv('TOKEN')
-PATH = "db/cache"
-PATH_PICKLE = "db/pickle"
+KEY_RESET = os.getenv('KEY_RESET')
+PATH = "cache"
+PATH_PICKLE = "pickle"
 FILE_PICKLE = PATH_PICKLE + "/parrot.pkl"
 CLASSIFIER_PICKLE = PATH_PICKLE + "/classifier.pkl"
 
@@ -35,11 +36,10 @@ bot.help_command = MyHelp()
 
 @bot.event
 async def on_ready():
-    # Se existir uma pasta chamada cache, ele apaga e cria outra.Tambem reseta a lista que esta guardada na memoria com o pickle
+    # If cache folder exists, erase cache and pickle and create another one.
     if not os.path.exists(PATH):
         os.mkdir(PATH)
         os.mkdir(PATH_PICKLE)
-        # pickle.dump([], open(FILE_PICKLE, 'wb'))
 
     guild = discord.utils.get(bot.guilds, name='A Cidade dos Robôs')
     channel = discord.utils.get(guild.text_channels, name='bot-fest')
@@ -80,70 +80,97 @@ async def run(ctx, ip,version="v4"):
     else:
         await ctx.send("Invalid version.See !help for more information.")
 
-@bot.command(help="web crawling from webpage")
+@bot.command(help="web crawling from webpage. Only receive 1 url and craw over a max of 15 pages. There is a timout with request takes more than 15 seconds.")
 async def crawl(ctx,url):
-    #Pega url e faz o webscrapping dela. As paginas serao salvas na pasta cache e a lista com os nomes das urls no doc_names
-
-    nome_urls,jumped = web_scrapping(url=url,dump_path=PATH,max_l=10)
-
-    try:
-        if not os.path.isfile(FILE_PICKLE):
-            with open(FILE_PICKLE,"wb") as f:
-                cache_names = nome_urls
-                pickle.dump(nome_urls,f)
-        else:
-            with open(FILE_PICKLE,'rb') as f:
-                cache_names = pickle.load(f)
-            cache_names.update(nome_urls)
-            with open(FILE_PICKLE,"wb") as f:
-                pickle.dump(cache_names,f)
+    # pages text will be saved in the folder cache
+    if URL_validate(url):
+        nome_urls,jumped = await web_scrapping(url=url,dump_path=PATH,ctx=ctx,max_l=15)
         
-        total_data = []        
-        doc_names = []
-        
-        for filename,url_n in cache_names.items():
-            f = os.path.join(PATH, filename)
-            data = joblib.load(f,'r')
-            total_data.append(data)
-            doc_names.append(url_n)
-
-
-        with open(CLASSIFIER_PICKLE,"wb") as f:
-            classificador = inverted_index(total_data,doc_names)
-            pickle.dump(classificador,f)
+        try:
+            if not os.path.isfile(FILE_PICKLE):
+                with open(FILE_PICKLE,"wb") as f:
+                    cache_names = nome_urls
+                    pickle.dump(nome_urls,f)
+            else:
+                with open(FILE_PICKLE,'rb') as f:
+                    cache_names = pickle.load(f)
+                cache_names.update(nome_urls)
+                with open(FILE_PICKLE,"wb") as f:
+                    pickle.dump(cache_names,f)
             
-    except Exception as e:
-        print(e)        
-    await ctx.send(f'successful web crawling from {url}')
-    
-@bot.command(help="reset do web scrapping")
-async def reset(ctx):
-    shutil.rmtree(PATH)
-    shutil.rmtree(PATH_PICKLE)
-    
-    os.mkdir(PATH)
-    os.mkdir(PATH_PICKLE)
-    
-    await ctx.send("web scrapping de paginas antigas foram resetadas!")
+            total_data = []        
+            doc_names = []
+            
+            for filename,url_n in cache_names.items():
+                f = os.path.join(PATH, filename)
+                data = joblib.load(f,'r')
+                total_data.append(data)
+                doc_names.append(url_n)
+
+
+            with open(CLASSIFIER_PICKLE,"wb") as f:
+                classificador = inverted_index(total_data,doc_names)
+                pickle.dump(classificador,f)
+                await ctx.send(f'Successful web crawling from {url}')
+        except Exception as e:
+            print(e) 
+    else:
+        await ctx.send(f"Invalid URL '{url}': No scheme supplied. Perhaps you meant https://{url}?") 
+              
+@bot.command(help="Web scrapping reset")
+async def reset(ctx,arg):
+    if arg == KEY_RESET:
+        shutil.rmtree(PATH)
+        shutil.rmtree(PATH_PICKLE)
+        
+        os.mkdir(PATH)
+        os.mkdir(PATH_PICKLE)
+        await ctx.send("Database is now empty!")
+    else:
+        await ctx.send("Reset Key Incorrect")
 
 
 @bot.command(help="Seach for a word in the documents")
 async def search(ctx,*args):
     words = list(args)
     try:    
-        if os.path.isfile(CLASSIFIER_PICKLE):#classificador nao esta vazio
+        if os.path.isfile(CLASSIFIER_PICKLE):# Classifier not empty
             with open(CLASSIFIER_PICKLE,'rb') as f:
                 classificador = pickle.load(f)
 
             res,not_founded_words,founded_words = search_words(words,classificador)
             
-            if bool(res):#pelo menos uma palavra foi encontrada no classificador
+            if bool(res):# At least one word was founded in the classifier
                 await ctx.send(embed=pretty_search(res,founded_words))
                 
-            if bool(not_founded_words):#existem palavras que nao estao no classificador
+            if bool(not_founded_words):# There are words that are,t in the classifier
                 await ctx.send(embed=pretty_not_founded(not_founded_words))
+        else:# Classfier doesn't exists
+            await ctx.send(f"It is necessary to use the command !crawl before searching for a word in the database")
+    except Exception as e:
+        print(e)
+        
+@bot.command(help="Seach for a word in the documents. If word not in documents, try to find its synonims")
+async def wn_search(ctx,arg):
+    word = arg
+    try:    
+        if os.path.isfile(CLASSIFIER_PICKLE):# Classifier isn't empty
+            with open(CLASSIFIER_PICKLE,'rb') as f:
+                classificador = pickle.load(f)
+
+            res,not_founded_words,founded_words = search_words([word],classificador)
+            
+            if bool(res):# Word is in the database
+                await ctx.send(embed=pretty_search(res,founded_words))
+            else:
+                s_urlTfidf = wn_search_words(word,classificador)
+                if bool(s_urlTfidf):#There is a synonim in the database
+                    for w,urlTfidf in s_urlTfidf.items():
+                        await ctx.send(embed=pretty_wn(w,urlTfidf))
+                else:
+                    await ctx.send("Neither the word or its synonims are in the database")
         else:#nao existe classificador
-            await ctx.send(f"eh necessario usar o comando !crawl antes de buscar por palavras no classificador")
+            await ctx.send(f"It is necessary to use the command !crawl before searching for a word in the database")
     except Exception as e:
         print(e)
                 
@@ -159,6 +186,11 @@ async def crawl_error(ctx,error):
 
 @search.error
 async def search_error(ctx,error):
+    if isinstance(error,commands.MissingRequiredArgument):
+        await ctx.send("Missing required argument. See !help for more information.")
+
+@reset.error
+async def reset_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
         await ctx.send("Missing required argument. See !help for more information.")
 

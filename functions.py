@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from urllib.parse import urljoin
+from nltk.corpus import wordnet
 
 def URL_validate(url):
     re_url = "^((http|https)://)[-a-zA-Z0-9@:%._\\+~#?&//=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%._\\+~#?&//=]*)$"
@@ -40,6 +41,16 @@ def pretty_not_founded(not_founded_words : list):
     embed.color = discord.Color.red()
     return embed
         
+def pretty_wn(name,dicio:dict):
+    embed = discord.Embed(title=f"Documentos contendo: {name}")
+
+    for url,tfidf in dicio.items():
+        embed.add_field(name=url,value=tfidf,inline=False)
+
+    embed.color = discord.Color.dark_blue()
+         
+    return embed
+
 def pretty_IP(info):
     embed = discord.Embed(title="IP finder")
     if(info['success']):
@@ -84,14 +95,15 @@ class MyHelp(commands.HelpCommand):
         channel = self.get_destination() # this defaults to the command context channel
         await channel.send(error)
    
-def web_scrapping(url,dump_path,max_l=10):
+async def web_scrapping(url,dump_path,ctx,max_l=10):
     # Parametros:
-    # url: url aonde sera feito o web scrapping
-    # dump_path: path para a pasta de cache
-    # max_l: max de requesicoes que podem ser feitas
-    # Retorna nada
+    # url: Url where webscrapping will be made
+    # dump_path: Path to cache folder
+    # max_l: max requisitions
+
     jumped_urls = []
-    # Fazendo o web scrapping da url
+
+    # Doing the webscrapping
     nome_urls = dict()
     next_urls = [url]
     l=0
@@ -101,29 +113,24 @@ def web_scrapping(url,dump_path,max_l=10):
             
             try:
                 page = requests.get(url=url_now,timeout=15)
-                #Twitter nao funciona muito bem
+                #Twitter don't work very well
                 if page.status_code == 200 and re.search("^text/html",page.headers["Content-Type"]):
                     soup = BeautifulSoup(page.content, "html.parser")
                     next_urls_tags = soup.find_all('a',href=True)
-                    # print(len(next_urls_tags))
                     text = soup.get_text()
                     clean_text = re.sub(r'[^\x00-\x7F]+', '', text)
                     
-                    # Criacao do nome do arquivo aonde o texto sera guardado
+                    # Filename creation
                     name = re.sub(r'[.:/]','',url_now)
                     data_name = name + ".joblib"
                     filename = os.path.join(dump_path,data_name)
-                    # print(url_now)
-                    # print(filename)
-                    # dump do texto contido na url em um arquivo .joblib. 
-                    # So 'e feito o dump se o arquivo nao existe
+
                     if not os.path.exists(filename):
                         with open(filename,'wb') as f:
                             nome_urls[data_name] = url_now
+                            await ctx.send(f"Webscrapping from <{url_now}> was sucessesful")
                             joblib.dump(clean_text,f)
-                            l+=1
-                            # print("foi")
-                    
+                            l+=1                    
                     
                     for a in next_urls_tags:
                         
@@ -133,15 +140,14 @@ def web_scrapping(url,dump_path,max_l=10):
                             link = urljoin(url_now, link)                 
                             
                         next_urls.append(link)  
-
+                        
             except Exception as e:
-                # print(f"algo deu errado,pulando essa url:{url_now}")
                 print(e)
                 jumped_urls.append(url_now)
+                await ctx.send(f"The following url was jumped: {url_now}")
         
         next_urls.pop(0)
         
-    # dict_words = inverted_index(PATH,doc_names)
     return nome_urls,jumped_urls   
      
 def inverted_index(total_data,doc_names):
@@ -168,6 +174,7 @@ def search_words(palavras, indice):
     founded_words = []
     
     for p in palavras:
+        p = p.lower()
         if p in indice.keys():
             founded_words.append(p)        
             for documento in indice[p].keys():
@@ -178,3 +185,29 @@ def search_words(palavras, indice):
         else:
             notfounded.append(p)
     return resultado,notfounded,founded_words
+
+def wn_search_words(palavra, indice):
+    # Only accepts one word. Using a lot of words make the bot send lots of messages because
+    # would make one for each one of the possible combinations with the words synonims 
+    
+    palavra = palavra.lower()
+    sinonimos = []
+    s_urlTfidf = dict()
+
+    for syn in wordnet.synsets(palavra):
+        for lem in syn.lemmas():
+            if lem.name().lower() != palavra:
+                sinonimos.append(lem.name())
+
+    for s in sinonimos:
+        res_s = dict()
+        if s in indice.keys():       
+            for documento in indice[s].keys():
+                if documento not in res_s.keys():
+                    res_s[documento] = indice[s][documento]
+                else:
+                    res_s[documento] += indice[s][documento]
+            
+            s_urlTfidf[s]  = res_s
+        
+    return s_urlTfidf
