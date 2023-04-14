@@ -90,6 +90,7 @@ async def crawl(ctx,url):
             if not os.path.isfile(FILE_PICKLE):
                 with open(FILE_PICKLE,"wb") as f:
                     cache_names = nome_urls
+                    print(cache_names)
                     pickle.dump(nome_urls,f)
             else:
                 with open(FILE_PICKLE,'rb') as f:
@@ -112,11 +113,12 @@ async def crawl(ctx,url):
                 classificador = inverted_index(total_data,doc_names)
                 pickle.dump(classificador,f)
                 await ctx.send(f'Successful web crawling from {url}')
+                
         except Exception as e:
             print(e) 
     else:
         await ctx.send(f"Invalid URL '{url}': No scheme supplied. Perhaps you meant https://{url}?") 
-              
+        
 @bot.command(help="Web scrapping reset")
 async def reset(ctx,arg):
     if arg == KEY_RESET:
@@ -141,16 +143,17 @@ async def search(ctx,*args):
             res,not_founded_words,founded_words = search_words(words,classificador)
             
             if bool(res):# At least one word was founded in the classifier
-                await ctx.send(embed=pretty_search(res,founded_words))
+                sorted_res = sorted(res.items(), key=lambda x:x[1])
+                await ctx.send(embed=pretty_search(sorted_res,founded_words))
                 
-            if bool(not_founded_words):# There are words that are,t in the classifier
+            if bool(not_founded_words):# There are words that are't in the classifier
                 await ctx.send(embed=pretty_not_founded(not_founded_words))
         else:# Classfier doesn't exists
             await ctx.send(f"It is necessary to use the command !crawl before searching for a word in the database")
     except Exception as e:
         print(e)
         
-@bot.command(help="Seach for a word in the documents. If word not in documents, try to find its synonims")
+@bot.command(help="Seach for a word in the documents. If word not in documents, try to find its most similar synonim")
 async def wn_search(ctx,arg):
     word = arg
     try:    
@@ -158,17 +161,13 @@ async def wn_search(ctx,arg):
             with open(CLASSIFIER_PICKLE,'rb') as f:
                 classificador = pickle.load(f)
 
-            res,not_founded_words,founded_words = search_words([word],classificador)
             
-            if bool(res):# Word is in the database
-                await ctx.send(embed=pretty_search(res,founded_words))
-            else:
-                s_urlTfidf = wn_search_words(word,classificador)
-                if bool(s_urlTfidf):#There is a synonim in the database
-                    for w,urlTfidf in s_urlTfidf.items():
-                        await ctx.send(embed=pretty_wn(w,urlTfidf))
-                else:
-                    await ctx.send("Neither the word or its synonims are in the database")
+            s_urlTfidf = wn_search_words(word,classificador)
+            if bool(s_urlTfidf):
+                for w,urlTfidf in s_urlTfidf.items():
+                    await ctx.send(embed=pretty_wn(w,urlTfidf))
+            else:#Palavra nao tem um synset
+                await ctx.send("Word don't have a synset from wordnet")
         else:#nao existe classificador
             await ctx.send(f"It is necessary to use the command !crawl before searching for a word in the database")
     except Exception as e:

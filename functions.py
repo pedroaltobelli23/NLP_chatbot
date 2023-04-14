@@ -186,28 +186,32 @@ def search_words(palavras, indice):
             notfounded.append(p)
     return resultado,notfounded,founded_words
 
-def wn_search_words(palavra, indice):
+def wn_search_words(palavra : str, indice : dict):
     # Only accepts one word. Using a lot of words make the bot send lots of messages because
     # would make one for each one of the possible combinations with the words synonims 
     
     palavra = palavra.lower()
-    sinonimos = []
     s_urlTfidf = dict()
+    
+    word_syn = wordnet.synsets(palavra)
+    if not word_syn:
+        return None
+    word_syn = word_syn[0]
 
-    for syn in wordnet.synsets(palavra):
-        for lem in syn.lemmas():
-            if lem.name().lower() != palavra:
-                sinonimos.append(lem.name())
+    maior_similaridade = 0
+    maior_similar = None
 
-    for s in sinonimos:
-        res_s = dict()
-        if s in indice.keys():       
-            for documento in indice[s].keys():
-                if documento not in res_s.keys():
-                    res_s[documento] = indice[s][documento]
-                else:
-                    res_s[documento] += indice[s][documento]
-            
-            s_urlTfidf[s]  = res_s
-        
+    for palavra in indice.keys():
+        palavra_syn = wordnet.synsets(palavra)
+        if not palavra_syn:
+            continue
+        palavra_syn = palavra_syn[0]
+        similarity = palavra_syn.wup_similarity(word_syn)
+        if similarity > maior_similaridade:
+            maior_similar = palavra
+            maior_similaridade = similarity
+    
+    s_urlTfidf,b,c = search_words(maior_similar,indice)
     return s_urlTfidf
+
+
