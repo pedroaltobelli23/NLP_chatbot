@@ -195,23 +195,27 @@ def wn_search_words(palavra : str, indice : dict):
     
     word_syn = wordnet.synsets(palavra)
     if not word_syn:
+        # print("Palavra nao tem synset")
         return None
     word_syn = word_syn[0]
 
     maior_similaridade = 0
     maior_similar = None
 
-    for palavra in indice.keys():
-        palavra_syn = wordnet.synsets(palavra)
-        if not palavra_syn:
+    for w in indice.keys():
+        w_syn = wordnet.synsets(w)
+        if not w_syn:
             continue
-        palavra_syn = palavra_syn[0]
-        similarity = palavra_syn.wup_similarity(word_syn)
+        
+        w_syn = w_syn[0]
+        similarity = w_syn.wup_similarity(word_syn)
         if similarity > maior_similaridade:
-            maior_similar = palavra
+            maior_similar = w
             maior_similaridade = similarity
     
-    s_urlTfidf,b,c = search_words(maior_similar,indice)
-    return s_urlTfidf
+    s_urlTfidf,b,c = search_words([maior_similar],indice)
+    res = dict()
+    res[maior_similar] = s_urlTfidf
+    return res
 
 

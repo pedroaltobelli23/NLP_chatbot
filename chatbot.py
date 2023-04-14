@@ -143,7 +143,7 @@ async def search(ctx,*args):
             res,not_founded_words,founded_words = search_words(words,classificador)
             
             if bool(res):# At least one word was founded in the classifier
-                sorted_res = sorted(res.items(), key=lambda x:x[1])
+                sorted_res = dict(sorted(res.items(), key=lambda x:x[1]))
                 await ctx.send(embed=pretty_search(sorted_res,founded_words))
                 
             if bool(not_founded_words):# There are words that are't in the classifier
@@ -160,12 +160,13 @@ async def wn_search(ctx,arg):
         if os.path.isfile(CLASSIFIER_PICKLE):# Classifier isn't empty
             with open(CLASSIFIER_PICKLE,'rb') as f:
                 classificador = pickle.load(f)
-
-            
             s_urlTfidf = wn_search_words(word,classificador)
+            
             if bool(s_urlTfidf):
                 for w,urlTfidf in s_urlTfidf.items():
-                    await ctx.send(embed=pretty_wn(w,urlTfidf))
+                    sorted_urlTfidf = dict(sorted(urlTfidf.items(), key=lambda x:x[1]))
+                    await ctx.send(embed=pretty_wn(w,sorted_urlTfidf))
+
             else:#Palavra nao tem um synset
                 await ctx.send("Word don't have a synset from wordnet")
         else:#nao existe classificador
