@@ -5,10 +5,12 @@ from dotenv import load_dotenv,find_dotenv
 from discord.ext import commands
 from utils.functions import address_get,MyHelp,inverted_index,search_words,web_scrapping,wn_search_words,URL_validate,filter_by_th,get_texts_with_word
 from utils.prettify import pretty_IP,pretty_search,pretty_not_founded,pretty_wn,pretty_crawl
+import joblib
 import numpy as np
+import shutil
+import pickle
 import tensorflow as tf
 from generate import ModelGenerate
-import sys
 
 load_dotenv(find_dotenv())
 
@@ -21,6 +23,7 @@ GUILD = os.getenv('GUILD')
 git_url = "https://github.com/pedroaltobelli23/NLP_chatbot"
 
 cache_names = dict()
+incredible_model = ModelGenerate()
 regexipv6 = "([0-9a-fA-F]{1,4}:){7,7}([0-9a-fA-F]{1,4})|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)"
 regexipv4 = "((([0-9])|([1-9][0-9])|(1[0-9][0-9])|(2[0-5][0-5]))\.){3}((([0-9])|([1-9][0-9])|(1[0-9][0-9])|(2[0-5][0-5])))"
 
@@ -171,15 +174,12 @@ async def get_all_pages(ctx,*args):
 @bot.command(help="Generate text from database")
 async def generate(ctx,*args):
     word = args[0]
-    # print(word)
+    print(word)
     try:
         if os.path.isfile(FILE_CLASS_PICKLE):
             res = get_texts_with_word(word)
-            # print(res)
+            print(res)
             if bool(res):# At least one word was founded in the classifier
-                print(res)
-                print(word)
-                incredible_model = ModelGenerate()
                 phrase = incredible_model.prediction(res,word)
                 await ctx.send(phrase)
             else:
@@ -187,9 +187,7 @@ async def generate(ctx,*args):
         else:
             await ctx.send("Utilize o comando !crawl primeiro")
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
+        print(e)
 
 @run.error
 async def run_error(ctx,error):

@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
+import sys
 import os
 import joblib
 import requests
@@ -14,10 +15,7 @@ from nltk.corpus import wordnet
 from dotenv import load_dotenv,find_dotenv
 import shutil
 import pickle
-from keras.layers import Input, Dense, Activation, TextVectorization, Embedding, GRU,Bidirectional
-from keras.models import Model
 import tensorflow as tf
-from sklearn.preprocessing import OneHotEncoder
 
 load_dotenv(find_dotenv())
 CLF = tf.keras.saving.load_model("model/notebooks/model")
@@ -28,7 +26,16 @@ class Website:
         self.name = name
         self.url = url
         self.sentiment_value = sentiment_value
-        self.text = text
+        self.text = self.clean(text)
+        
+    def get_text(self):
+        return self.text
+    
+    def clean(self,text):
+        return text.replace('\n',' ')
+    
+def clean_text(website):
+    website.text = website.text.replace('\n', ' ')
 
 def URL_validate(url):
     re_url = "^((http|https)://)[-a-zA-Z0-9@:%._\\+~#?&//=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%._\\+~#?&//=]*)$"
@@ -37,7 +44,6 @@ def URL_validate(url):
     if (re.search(r, url)):
         return True
     return False
-
 
 async def address_get(url):
     async with aiohttp.ClientSession() as session:
@@ -50,10 +56,10 @@ class MyHelp(commands.HelpCommand):
         embed = discord.Embed(title="Help",color=discord.Color.yellow())
         
         filtered = await self.filter_commands(self.context.bot.commands,sort=False)
-        all_commands = []
-        
+        help = command.help
+        use = command.use  
         for command in filtered:
-            embed.add_field(name=command.name,value=command.help,inline=False)
+            embed.add_field(name=command.name,value=f"{help} \n use",inline=False)
         
         await self.context.send(embed=embed)
         
@@ -86,14 +92,14 @@ def web_scrapping(url,max_l=10):
                     next_urls_tags = soup.find_all('a',href=True)
                     text = soup.get_text()
                     clean_text = re.sub(r'[^\x00-\x7F]+', '', text)
-                    
+                    clean_text = clean_text.replace("'"," ")
                     name = re.sub(r'[.:/]','',url_now)
 
                     if not os.path.isfile(FILE_CLASS_PICKLE):#if file with list of classes don't exist
                         with open(FILE_CLASS_PICKLE,"wb") as f:
                             predict_val = CLF.predict([clean_text])[0][1]
                             predict_val = fixed_sentiment_value(predict_val)
-                            site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text) #getting the positive value
+                            site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip()) #getting the positive value
                             pickle.dump([site],f)
                     else:
                         with open(FILE_CLASS_PICKLE,'rb') as f:
@@ -105,7 +111,7 @@ def web_scrapping(url,max_l=10):
                             if stop_tag == False:
                                 predict_val = CLF.predict([clean_text])[0][1]
                                 predict_val = fixed_sentiment_value(predict_val)
-                                site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text) #getting the positive porcentage
+                                site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip()) #getting the positive porcentage
                                 list_websites.append(site)
                                 nome_urls.append(url_now)
                                 l+=1
@@ -122,9 +128,12 @@ def web_scrapping(url,max_l=10):
                         if URL_validate(link) is False:
                             link = urljoin(url_now, link)                 
                             
-                        next_urls.append(link)  
+                        next_urls.append(link)
+                          
             except Exception as e:
-                print(e)
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
                 jumped_urls.append(url_now)
         next_urls.pop(0)
     return nome_urls,jumped_urls   
@@ -134,7 +143,6 @@ def inverted_index():
         list_websites = pickle.load(f)
         total_data = [obj.text for obj in list_websites]
         doc_names = [obj.url for obj in list_websites]
-        sentiment_values = [obj.sentiment_value for obj in list_websites]
         
     vectorizer = TfidfVectorizer()
     tfidf = vectorizer.fit_transform(total_data)
@@ -149,6 +157,24 @@ def inverted_index():
                 doc_df[doc_names[i]] = tfidf[i,j]
         res[word] = doc_df
     
+    return res
+
+
+def get_texts_with_word(word):
+    with open(FILE_CLASS_PICKLE,'rb') as f:
+        list_websites = pickle.load(f)
+        data = [obj.text for obj in list_websites]
+
+    vectorizer = TfidfVectorizer()
+    tfidf = vectorizer.fit_transform(data)
+    try:
+        word_index = vectorizer.vocabulary_[word]
+        
+        texts_with_word_indices = tfidf[:, word_index].nonzero()[0]
+        
+        res = [data[i].strip() for i in texts_with_word_indices]
+    except:
+        res = []
     return res
 
 def search_words(palavras, indice, th=-1):
