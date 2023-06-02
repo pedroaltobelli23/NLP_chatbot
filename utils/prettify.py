@@ -54,8 +54,15 @@ def pretty_IP(info):
     return embed
 
 def pretty_crawl(names):
-    embed = discord.Embed(title="Web Crawling completed for the following pages:")
+    embed = discord.Embed(title="Web Crawling completed for the following pages: ")
     for url in names:
+        embed.add_field(name=url,value="",inline=False)
+    embed.color = discord.Color.yellow()
+    return embed
+
+def pretty_urls(urls):
+    embed = discord.Embed(title="Web scrapped urls: ")
+    for url in urls:
         embed.add_field(name=url,value="",inline=False)
     embed.color = discord.Color.yellow()
     return embed

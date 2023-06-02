@@ -1,0 +1,1 @@
+O objetivo dessa parte da APS era integrar com a API do chatGPT. Nao deu muito trabalho e foi rapida de ser feita

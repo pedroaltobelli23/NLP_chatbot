@@ -8,6 +8,7 @@ from keras.models import Model
 import tensorflow as tf
 from utils.functions import Website,get_texts_with_word
 
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # print(pathlib.Path.cwd().parent)
 
 
@@ -16,15 +17,16 @@ class ModelGenerate:
         self.vocab_size = vocab_size
         self.name = name
         self.vectorize_layer = TextVectorization(max_tokens=vocab_size,output_sequence_length=10)
-        if os.path.exists(name):
-            self.model = tf.keras.saving.load_model(self.name)
-        else:
-            self.model = self.__create_model()
-            tf.keras.saving.save_model(self.model,filepath=self.name)
+        # if os.path.exists(name):
+        #     self.model = tf.keras.saving.load_model(self.name)
+        # else:
+        #     # tf.keras.saving.save_model(self.model,filepath=self.name)
+        #     pass
+        self.model = None
             
     def __create_model(self):
         #create the model and save it
-        predictor,latent = self.__predict_word(10,15,self.vocab_size)
+        predictor,latent = self.__predict_word(10,15,len(self.vectorize_layer.get_vocabulary()))
         opt = keras.optimizers.Nadam(learning_rate=0.1)
         loss_fn = keras.losses.SparseCategoricalCrossentropy(
             ignore_class=1,
@@ -33,6 +35,7 @@ class ModelGenerate:
 
         # print(predictor.summary())  
         predictor.compile(loss=loss_fn, optimizer=opt, metrics=["accuracy"])
+        # print(predictor.summary())
         return predictor   
     
     def __predict_word(self,seq_len, latent_dim, vocab_size):
@@ -45,7 +48,7 @@ class ModelGenerate:
         x = Softmax()(x)
         return Model(input_layer, x), Model(input_layer, latent_rep)
     
-    def __adapt_texts(self,texts):
+    def adapt_texts(self,texts):
         self.vectorize_layer.adapt(texts)
         
     def __separar_ultimo_token(self,texts):
@@ -55,7 +58,8 @@ class ModelGenerate:
         return x_, y_
     
     def __fitter(self,texts):
-        self.__adapt_texts(texts)
+        self.adapt_texts(texts)
+        self.model = self.__create_model()
         x_,y_ = self.__separar_ultimo_token(texts)
         history = self.model.fit(x_,y_,epochs=20,verbose=1)
         
@@ -63,13 +67,16 @@ class ModelGenerate:
         self.__fitter(texts)
         phrase = input_
         context = phrase
+        # print(self.vectorize_layer.get_vocabulary())
         for n in range(n_pred):
             pred = self.model.predict(self.vectorize_layer([context])[:,:-1])
             tentando = True
             while tentando:
                 # Selectionar de k-best
                 candidatos = tf.math.top_k(pred, k=10).indices[0,:]
+                # print(candidatos)
                 idx = np.random.choice(candidatos.numpy())
+                # print(idx)
                 # idx = tf.argmax(pred, axis=1)[0]
                 word = self.vectorize_layer.get_vocabulary()[idx]
                 if word in phrase.split():
@@ -82,7 +89,7 @@ class ModelGenerate:
         return phrase
         
 if __name__ == '__main__':
-    word = '2002'
+    word = 'research'
     all_texts = get_texts_with_word(word)
     print(len(all_texts))
     # print(all_texts)

@@ -16,6 +16,9 @@ from dotenv import load_dotenv,find_dotenv
 import shutil
 import pickle
 import tensorflow as tf
+import openai
+
+
 
 load_dotenv(find_dotenv())
 CLF = tf.keras.saving.load_model("model/notebooks/model")
@@ -56,10 +59,10 @@ class MyHelp(commands.HelpCommand):
         embed = discord.Embed(title="Help",color=discord.Color.yellow())
         
         filtered = await self.filter_commands(self.context.bot.commands,sort=False)
-        help = command.help
-        use = command.use  
         for command in filtered:
-            embed.add_field(name=command.name,value=f"{help} \n use",inline=False)
+            help = command.help
+            use = command.usage  
+            embed.add_field(name=command.name,value=f"{help} \n {use}",inline=False)
         
         await self.context.send(embed=embed)
         
@@ -91,7 +94,7 @@ def web_scrapping(url,max_l=10):
                     soup = BeautifulSoup(page.content, "html.parser")
                     next_urls_tags = soup.find_all('a',href=True)
                     text = soup.get_text()
-                    clean_text = re.sub(r'[^\x00-\x7F]+', '', text)
+                    clean_text = re.sub(r'[^\x00-\x7F]+', ' ', text)
                     clean_text = clean_text.replace("'"," ")
                     name = re.sub(r'[.:/]','',url_now)
 
@@ -177,6 +180,18 @@ def get_texts_with_word(word):
         res = []
     return res
 
+def get_urls(th):
+    with open(FILE_CLASS_PICKLE,'rb') as f:
+        list_websites = pickle.load(f)
+    
+    urls = []
+    
+    for obj in list_websites:
+        if obj.sentiment_value > th:
+            urls.append(obj.url)
+
+    return urls
+
 def search_words(palavras, indice, th=-1):
     assert type(palavras)==list
     resultado = dict()
@@ -253,3 +268,19 @@ def wn_search_words(palavra : str, indice : dict):
 def fixed_sentiment_value(value):
     return 2*value - 1
 
+def generategpt(texts):
+    max_prompt = 2000
+    each_value = max_prompt // len(texts)
+    compressed = []
+    for text in texts:
+        compressed.append(text[:each_value])
+
+    prompt = "\n".join(compressed)
+    
+    response = openai.Completion.create(
+        engine="davinci",  # Specify the ChatGPT model
+        prompt="Create a text using this text: " + prompt,
+        max_tokens=100  # Adjust the maximum number of tokens in the generated response as needed
+    )
+    generated_text = response.choices[0].text.strip()
+    return generated_text

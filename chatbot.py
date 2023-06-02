@@ -3,12 +3,13 @@ import os
 import re
 from dotenv import load_dotenv,find_dotenv
 from discord.ext import commands
-from utils.functions import address_get,MyHelp,inverted_index,search_words,web_scrapping,wn_search_words,URL_validate,filter_by_th,get_texts_with_word
-from utils.prettify import pretty_IP,pretty_search,pretty_not_founded,pretty_wn,pretty_crawl
+from utils.functions import address_get,MyHelp,inverted_index,search_words,web_scrapping,wn_search_words,URL_validate,filter_by_th,get_texts_with_word,get_urls,generategpt
+from utils.prettify import pretty_IP,pretty_search,pretty_not_founded,pretty_wn,pretty_crawl,pretty_urls
 import numpy as np
 import tensorflow as tf
 from generate import ModelGenerate
 import sys
+import openai
 
 load_dotenv(find_dotenv())
 
@@ -17,6 +18,7 @@ KEY_RESET = os.getenv('KEY_RESET')
 FILE_CLASS_PICKLE = os.getenv('FILE_CLASS_PICKLE')
 CHANNEL = os.getenv('CHANNEL')
 GUILD = os.getenv('GUILD')
+openai.api_key = os.getenv('API_KEY') 
 
 git_url = "https://github.com/pedroaltobelli23/NLP_chatbot"
 
@@ -31,6 +33,7 @@ intents.message_content = True
 # client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix='!',intents=intents,help_command=commands.MinimalHelpCommand(no_category = "All commands"))
 bot.help_command = MyHelp()
+incredible_model = ModelGenerate()
 
 @bot.event
 async def on_ready():
@@ -73,7 +76,7 @@ async def run(ctx, ip,version="v4"):
     else:
         await ctx.send("Invalid version.See !help for more information.")
 
-@bot.command(help="web crawling from webpage. Only receive 1 url and craw over a max of 15 pages. There is a timout with request takes more than 15 seconds.")
+@bot.command(help="web crawling from webpage. Only receive 1 url and craw over a max of 15 pages. There is a timout with request takes more than 15 seconds.",usage="!crawl <url>")
 async def crawl(ctx,url):
     # pages text will be saved in the folder cache
     if URL_validate(url):
@@ -84,20 +87,17 @@ async def crawl(ctx,url):
         await ctx.send(f"Invalid URL '{url}': No scheme supplied. Perhaps you meant https://{url}?")
 
         
-# @bot.command(help="Web scrapping reset")
-# async def reset(ctx,arg):
-#     if arg == KEY_RESET:
-#         shutil.rmtree(PATH)
-#         shutil.rmtree(PATH_PICKLE)
-        
-#         os.mkdir(PATH)
-#         os.mkdir(PATH_PICKLE)
-#         await ctx.send("Database is now empty!")
-#     else:
-#         await ctx.send("Reset Key Incorrect")
+@bot.command(help="Web scrapping reset",usage="!reset <secret_key>")
+async def reset(ctx,arg):
+    if arg == KEY_RESET:
+        if os.path.exists(FILE_CLASS_PICKLE):
+            os.remove(FILE_CLASS_PICKLE)
+        await ctx.send("Database is now empty!")
+    else:
+        await ctx.send("Reset Key Incorrect")
 
 
-@bot.command(help="Seach for a word or a phrase in the documents.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1")
+@bot.command(help="Seach for a word or a phrase in the documents.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1",usage="!search <word> [th=<value>]")
 async def search(ctx,*args): 
     params = list(args)
     threshold = -1
@@ -131,7 +131,7 @@ async def search(ctx,*args):
     except Exception as e:
         print(e)
         
-@bot.command(help="Search for one word in the documents. If word not in documents, try to find its most similar synonim.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1")
+@bot.command(help="Search for one word in the documents. If word not in documents, try to find its most similar synonim.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1",usage="!search <word> [th=<value>]")
 async def wn_search(ctx,*args):
     params = list(args)
     threshold = -1
@@ -164,11 +164,13 @@ async def wn_search(ctx,*args):
     except Exception as e:
         print(e)
         
-@bot.command(help="Get the url from all pages that have been webscrapped.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1")
-async def get_all_pages(ctx,*args):
-    await ctx.send("Dummie yet")
+@bot.command(help="Get the url from all pages that have been webscrapped.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1",usage="!get_all_pages <value>")
+async def get_all_pages(ctx,arg):
+    th = max(-1,min(1,float(arg)))
+    urls = get_urls(th)
+    await ctx.send(embed=pretty_urls(urls=urls))
             
-@bot.command(help="Generate text from database")
+@bot.command(help="Generate text from database",usage="!generate word")
 async def generate(ctx,*args):
     word = args[0]
     # print(word)
@@ -177,9 +179,8 @@ async def generate(ctx,*args):
             res = get_texts_with_word(word)
             # print(res)
             if bool(res):# At least one word was founded in the classifier
-                print(res)
-                print(word)
-                incredible_model = ModelGenerate()
+                # print(res)
+                # print(word)
                 phrase = incredible_model.prediction(res,word)
                 await ctx.send(phrase)
             else:
@@ -190,7 +191,28 @@ async def generate(ctx,*args):
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
-
+        
+@bot.command(help="Generate text from database using GPT API",usage="!")
+async def gptgenerate(ctx,arg):
+    word = str(arg)
+    try:
+        if os.path.isfile(FILE_CLASS_PICKLE):
+            texts = get_texts_with_word(word)
+            # print(res)
+            if bool(texts):# At least one word was founded in the classifier
+                # print(res)
+                # print(word)
+                phrase = generategpt(texts)
+                await ctx.send(phrase)
+            else:
+                await ctx.send(embed=pretty_not_founded([word]))
+        else:
+            await ctx.send("Utilize o comando !crawl primeiro")
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
+    
 @run.error
 async def run_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
@@ -205,10 +227,25 @@ async def crawl_error(ctx,error):
 async def search_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
         await ctx.send("Missing required argument. See !help for more information.")
-
-# @reset.error
-# async def reset_error(ctx,error):
-#     if isinstance(error,commands.MissingRequiredArgument):
-#         await ctx.send("Missing required argument. See !help for more information.")
+        
+@wn_search.error
+async def wn_search_error(ctx,error):
+    if isinstance(error,commands.MissingRequiredArgument):
+        await ctx.send("Missing required argument. See !help for more information.")
+        
+@generate.error
+async def generate_error(ctx,error):
+    if isinstance(error,commands.MissingRequiredArgument):
+        await ctx.send("Missing required argument. See !help for more information.")
+        
+@get_all_pages.error
+async def get_all_pages_error(ctx,error):
+    if isinstance(error,commands.MissingRequiredArgument):
+        await ctx.send("Missing required argument. See !help for more information.")
+        
+@reset.error
+async def reset_error(ctx,error):
+    if isinstance(error,commands.MissingRequiredArgument):
+        await ctx.send("Missing required argument. See !help for more information.")
 
 bot.run(TOKEN)
