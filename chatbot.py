@@ -13,7 +13,7 @@ import openai
 
 load_dotenv(find_dotenv())
 
-TOKEN = os.getenv('TOKEN_TESTE')
+TOKEN = os.getenv('TOKEN')
 KEY_RESET = os.getenv('KEY_RESET')
 FILE_CLASS_PICKLE = os.getenv('FILE_CLASS_PICKLE')
 CHANNEL = os.getenv('CHANNEL')
