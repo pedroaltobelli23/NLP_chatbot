@@ -13,6 +13,7 @@ import openai
 
 load_dotenv(find_dotenv())
 
+# Environment variables
 TOKEN = os.getenv('TOKEN')
 KEY_RESET = os.getenv('KEY_RESET')
 FILE_CLASS_PICKLE = os.getenv('FILE_CLASS_PICKLE')
@@ -20,7 +21,9 @@ CHANNEL = os.getenv('CHANNEL')
 GUILD = os.getenv('GUILD')
 openai.api_key = os.getenv('API_KEY') 
 
+# Github repository
 git_url = "https://github.com/pedroaltobelli23/NLP_chatbot"
+
 
 cache_names = dict()
 regexipv6 = "([0-9a-fA-F]{1,4}:){7,7}([0-9a-fA-F]{1,4})|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)"
@@ -30,16 +33,17 @@ intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 
-# client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix='!',intents=intents,help_command=commands.MinimalHelpCommand(no_category = "All commands"))
 bot.help_command = MyHelp()
+
+# Creating Model object
 incredible_model = ModelGenerate()
 
 @bot.event
 async def on_ready():
     guild = discord.utils.get(bot.guilds, name=GUILD)
     channel = discord.utils.get(guild.text_channels, name=CHANNEL)
-    await channel.send('Hello world!\nType !help for more information.')
+    await channel.send('Hello, I am Goofy Bot!\nType !help for more information about me.')
 
 @bot.command(help="returns the source code from this bot")
 async def source(ctx):
@@ -50,7 +54,7 @@ async def source(ctx):
 @bot.command(help="returns the author's name")
 async def author(ctx):
     embed = discord.Embed(title="Author",color=discord.Color.red())
-    embed.description = 'Author: Pedro Altobelli \n e-mail: pedroatp@al.insper.edu.br'
+    embed.description = 'Author: Pedro Altobelli \ne-mail: pedroatp@al.insper.edu.br'
     await ctx.send(embed=embed)
 
 @bot.command(help="get informations from IP address.\nIPv4 format: x.x.x.x\nIPv6 format y:y:y:y:y:y:y:y (also works with abreviation.e.g->2001:db8::)\n!run [IPv4]\n!run [IPv6] v6\nAPI used: https://rapidapi.com/xakageminato/api/ip-geolocation-ipwhois-io")
@@ -58,16 +62,19 @@ async def run(ctx, ip,version="v4"):
     #!run x.x.x.x v4
     #!run y:y:y:y:y:y:y:y v6
     #!run x.x.x.x [default v4]
-        
+    
+    # Check IP type using regex        
     if(re.fullmatch("v4",version)):
-        #versao v4
+        # Version v4
+        # Check format 
         if(re.fullmatch(regexipv4,ip)):
             infos = await address_get('http://ipwho.is/'+ip)
             await ctx.send(embed=pretty_IP(infos))
         else:
             await ctx.send("Invalid IPv4")
     elif(re.fullmatch("v6",version)):
-        #versao v6
+        # Version v6
+        # Check format 
         if(re.fullmatch(regexipv6,ip)):
             infos = await address_get('http://ipwho.is/'+ip)
             await ctx.send(embed=pretty_IP(infos))
@@ -76,18 +83,22 @@ async def run(ctx, ip,version="v4"):
     else:
         await ctx.send("Invalid version.See !help for more information.")
 
+# Function for web crawling.
+# Very effective but for some reason don't work very well with Twitter
 @bot.command(help="web crawling from webpage. Only receive 1 url and craw over a max of 15 pages. There is a timout with request takes more than 15 seconds.",usage="!crawl <url>")
 async def crawl(ctx,url):
     # pages text will be saved in the folder cache
     if URL_validate(url):
+        await ctx.send("This operation can take a while...")
         nome_urls,jumped = web_scrapping(url=url,max_l=15)
         print("=========================================foi====================================")
         await ctx.send(embed=pretty_crawl(nome_urls))
     else:
         await ctx.send(f"Invalid URL '{url}': No scheme supplied. Perhaps you meant https://{url}?")
 
-        
-@bot.command(help="Web scrapping reset",usage="!reset <secret_key>")
+# Reset of the web crawling
+# Make use of a secret key
+@bot.command(help="Web crawling reset",usage="!reset <secret_key>")
 async def reset(ctx,arg):
     if arg == KEY_RESET:
         if os.path.exists(FILE_CLASS_PICKLE):
@@ -96,8 +107,8 @@ async def reset(ctx,arg):
     else:
         await ctx.send("Reset Key Incorrect")
 
-
-@bot.command(help="Seach for a word or a phrase in the documents.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1",usage="!search <word> [th=<value>]")
+# Search for a word in the database
+@bot.command(help="Seach for a word or a phrase in the documents. You can use the argument th=X in the end for filtering pages by positivity. th default is -1 which means that filter wasn't applied. Goes from -1 to 1",usage="!search <word> [th=<value>]")
 async def search(ctx,*args): 
     params = list(args)
     threshold = -1
@@ -127,11 +138,12 @@ async def search(ctx,*args):
             if bool(not_founded_words):# There are words that aren't in the classifier
                 await ctx.send(embed=pretty_not_founded(not_founded_words))
         else:
-            await ctx.send("Utilize o comando !crawl primeiro")
+            await ctx.send("It is necessary to use the command !crawl before searching for a word in the database")
     except Exception as e:
         print(e)
         
-@bot.command(help="Search for one word in the documents. If word not in documents, try to find its most similar synonim.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1",usage="!search <word> [th=<value>]")
+# Search for a word in the database. If word isn't in the database, search for it synonim
+@bot.command(help="Search for one word in the documents. If word not in documents, try to find its most similar synonim. You can use the argument th=X in the end for filtering pages by positivity. th default is -1 which means that filter wasn't applied. Goes from -1 to 1",usage="!search <word> [th=<value>]")
 async def wn_search(ctx,*args):
     params = list(args)
     threshold = -1
@@ -157,42 +169,42 @@ async def wn_search(ctx,*args):
                     filtered = filter_by_th(urlTfidf,threshold)
                     sorted_urlTfidf = dict(sorted(filtered.items(), key=lambda x:x[1],reverse=True))
                     await ctx.send(embed=pretty_wn(w,sorted_urlTfidf,threshold))
-            else:#Palavra nao tem um synset
+            else:
                 await ctx.send("Word don't have a synset from wordnet")
-        else:#nao existe classificador
+        else:
             await ctx.send(f"It is necessary to use the command !crawl before searching for a word in the database")
     except Exception as e:
         print(e)
         
-@bot.command(help="Get the url from all pages that have been webscrapped.You can use the argument th=X in the end for filtering pages by positivity.th default is -1 which means that filter wasn't applied.Goes from -1 to 1",usage="!get_all_pages <value>")
+# Get the url from all the pages that have been webscrapped
+@bot.command(help="Get the url from all pages that have been webscrapped. You can use the argument th=X in the end for filtering pages by positivity. th default is -1 which means that filter wasn't applied. Goes from -1 to 1",usage="!get_all_pages <value>")
 async def get_all_pages(ctx,arg):
     th = max(-1,min(1,float(arg)))
     urls = get_urls(th)
     await ctx.send(embed=pretty_urls(urls=urls))
             
-@bot.command(help="Generate text from database",usage="!generate word")
+# Generate text using the database. Model trained in-house
+@bot.command(help="Generate text from database",usage="!generate <word>")
 async def generate(ctx,*args):
     word = args[0]
     # print(word)
     try:
         if os.path.isfile(FILE_CLASS_PICKLE):
             res = get_texts_with_word(word)
-            # print(res)
             if bool(res):# At least one word was founded in the classifier
-                # print(res)
-                # print(word)
                 phrase = incredible_model.prediction(res,word)
                 await ctx.send(phrase)
             else:
                 await ctx.send(embed=pretty_not_founded([word]))
         else:
-            await ctx.send("Utilize o comando !crawl primeiro")
+            await ctx.send("It is necessary to use the command !crawl before generating a text")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
         
-@bot.command(help="Generate text from database using GPT API",usage="!")
+# Generate text using the database and the davinci model from OpenAI
+@bot.command(help="Generate text from database using GPT API",usage="!gptgenerate <word>")
 async def gptgenerate(ctx,arg):
     word = str(arg)
     try:
@@ -207,12 +219,13 @@ async def gptgenerate(ctx,arg):
             else:
                 await ctx.send(embed=pretty_not_founded([word]))
         else:
-            await ctx.send("Utilize o comando !crawl primeiro")
+            await ctx.send("It is necessary to use the command !crawl before generating a text")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
     
+# Error handling
 @run.error
 async def run_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
@@ -233,8 +246,8 @@ async def wn_search_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
         await ctx.send("Missing required argument. See !help for more information.")
         
-@generate.error
-async def generate_error(ctx,error):
+@reset.error
+async def reset_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
         await ctx.send("Missing required argument. See !help for more information.")
         
@@ -242,9 +255,14 @@ async def generate_error(ctx,error):
 async def get_all_pages_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
         await ctx.send("Missing required argument. See !help for more information.")
-        
-@reset.error
-async def reset_error(ctx,error):
+
+@generate.error
+async def generate_error(ctx,error):
+    if isinstance(error,commands.MissingRequiredArgument):
+        await ctx.send("Missing required argument. See !help for more information.")
+
+@gptgenerate.error
+async def gptgenerate_error(ctx,error):
     if isinstance(error,commands.MissingRequiredArgument):
         await ctx.send("Missing required argument. See !help for more information.")
 

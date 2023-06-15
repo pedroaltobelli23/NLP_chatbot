@@ -6,14 +6,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import sys
 import os
-import joblib
 import requests
 from bs4 import BeautifulSoup
 import re
 from urllib.parse import urljoin
 from nltk.corpus import wordnet
 from dotenv import load_dotenv,find_dotenv
-import shutil
 import pickle
 import tensorflow as tf
 import openai
@@ -21,6 +19,8 @@ import openai
 
 
 load_dotenv(find_dotenv())
+
+# Environment variables
 CLF = tf.keras.saving.load_model("model/notebooks/model")
 FILE_CLASS_PICKLE = os.getenv('FILE_CLASS_PICKLE')
 
@@ -68,13 +68,13 @@ class MyHelp(commands.HelpCommand):
         
     async def send_error_message(self, error):
         """If there is an error, send a embed containing the error."""
-        channel = self.get_destination() # this defaults to the command context channel
+        # this defaults to the command context channel
+        channel = self.get_destination()
         await channel.send(error)
    
 def web_scrapping(url,max_l=10):
-    # Parametros:
+    # Parameters:
     # url: Url where webscrapping will be made
-    # dump_path: Path to cache folder
     # max_l: max requisitions
 
     jumped_urls = []
@@ -89,7 +89,7 @@ def web_scrapping(url,max_l=10):
         if l<max_l:
             try:
                 page = requests.get(url=url_now,timeout=15)
-                #Twitter don't work very well
+                # Twitter don't work very well
                 if page.status_code == 200 and re.search("^text/html",page.headers["Content-Type"]):
                     soup = BeautifulSoup(page.content, "html.parser")
                     next_urls_tags = soup.find_all('a',href=True)
@@ -98,11 +98,13 @@ def web_scrapping(url,max_l=10):
                     clean_text = clean_text.replace("'"," ")
                     name = re.sub(r'[.:/]','',url_now)
 
-                    if not os.path.isfile(FILE_CLASS_PICKLE):#if file with list of classes don't exist
+                    # if file with list of classes don't exist
+                    if not os.path.isfile(FILE_CLASS_PICKLE):
                         with open(FILE_CLASS_PICKLE,"wb") as f:
                             predict_val = CLF.predict([clean_text])[0][1]
                             predict_val = fixed_sentiment_value(predict_val)
-                            site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip()) #getting the positive value
+                            # getting the positive value
+                            site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip())
                             pickle.dump([site],f)
                     else:
                         with open(FILE_CLASS_PICKLE,'rb') as f:
@@ -114,7 +116,8 @@ def web_scrapping(url,max_l=10):
                             if stop_tag == False:
                                 predict_val = CLF.predict([clean_text])[0][1]
                                 predict_val = fixed_sentiment_value(predict_val)
-                                site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip()) #getting the positive porcentage
+                                # getting the positive porcentage
+                                site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip()) 
                                 list_websites.append(site)
                                 nome_urls.append(url_now)
                                 l+=1
@@ -242,7 +245,6 @@ def wn_search_words(palavra : str, indice : dict):
     
     word_syn = wordnet.synsets(palavra)
     if not word_syn:
-        # print("Palavra nao tem synset")
         return None
     word_syn = word_syn[0]
 

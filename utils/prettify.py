@@ -2,7 +2,7 @@ import discord
 
 def pretty_search(url_tdidf : dict,words : list,th : float):
     wordss = " ".join(words)
-    title=f"Documentos contendo: {wordss} Ordenado por relevância usando th={th:.2f}"
+    title=f"Documents containing: {wordss} Sorted by relevance using th={th:.2f}"
     embed = discord.Embed(title=title)
     
     for url,tfidf in url_tdidf.items():
@@ -13,7 +13,7 @@ def pretty_search(url_tdidf : dict,words : list,th : float):
     return embed
 
 def pretty_not_founded(not_founded_words : list):
-    title="Nao encontradas do banco de dados"
+    title="the following word(s) was/were not found in the database: "
     embed = discord.Embed(title=title)
     
     for word in not_founded_words:
@@ -23,7 +23,7 @@ def pretty_not_founded(not_founded_words : list):
     return embed
         
 def pretty_wn(name,dicio : dict,th : float):
-    embed = discord.Embed(title=f"Documentos contendo: {name} Ordenado por relevância usando th={th:.3f}")
+    embed = discord.Embed(title=f"Documents containing: {name} Sorted by relevance using th={th:.3f}")
 
     for url,tfidf in dicio.items():
         embed.add_field(name=url,value=f"TFiDF: {tfidf}",inline=False)

@@ -1,27 +1,16 @@
 import numpy as np
-import os
 import sys
-import pathlib
 import keras
 from keras.layers import Input, Dense, TextVectorization, Embedding, LSTM, Softmax
 from keras.models import Model
 import tensorflow as tf
-from utils.functions import Website,get_texts_with_word
-
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-# print(pathlib.Path.cwd().parent)
-
+from utils.functions import Website, get_texts_with_word
 
 class ModelGenerate:
     def __init__(self,vocab_size=5000,name='model2'):
         self.vocab_size = vocab_size
         self.name = name
         self.vectorize_layer = TextVectorization(max_tokens=vocab_size,output_sequence_length=10)
-        # if os.path.exists(name):
-        #     self.model = tf.keras.saving.load_model(self.name)
-        # else:
-        #     # tf.keras.saving.save_model(self.model,filepath=self.name)
-        #     pass
         self.model = None
             
     def __create_model(self):
@@ -32,10 +21,9 @@ class ModelGenerate:
             ignore_class=1,
             name="sparse_categorical_crossentropy",
         )
-
-        # print(predictor.summary())  
+         
         predictor.compile(loss=loss_fn, optimizer=opt, metrics=["accuracy"])
-        # print(predictor.summary())
+        
         return predictor   
     
     def __predict_word(self,seq_len, latent_dim, vocab_size):
