@@ -1,0 +1,2 @@
+For the second delivery of the project, I chose to do the !run command so that the user of my bot can get information about any IP address such as country, region, ASN, domain and name of the organization that owns the ASN. This functionality has as main objective to help computing students to understand a little more about network protocols, about internet domains and companies that take care of these domains.
+Although it wasn't difficult to complete this activity, the program's logic and the bot's design took a bit of work.

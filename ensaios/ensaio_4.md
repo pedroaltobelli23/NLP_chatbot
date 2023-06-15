@@ -1,3 +1,0 @@
-O objetivo dessa atividade era fazer uma função para o bot do discord que retornaria uma frase e para gerar essa frase usaria dados do web scraping feito com a função !crawl. A atividade não foi muito complexa de ser feita, porém foi trabalhosa. Por algum motivo, ao fazer o load de qualquer um dos modelos, aparecem diversos warnings, porém não sei o que significam. Da para retira-los usando o comando ```export TF_CPP_MIN_LOG_LEVEL=2``` no terminal.
-
-Por conta da maneira que contrui o codigo nas versoes anteriores, para cada !generate sera contruido um modelo

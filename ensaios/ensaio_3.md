@@ -1,1 +1,0 @@
-A rede neural bilateral GRU foi relativamente facil de fazer. O mais complicado foi integrar com a API do discord, uma vez que tive que fazer grandes alterações para faze-la funcionar.

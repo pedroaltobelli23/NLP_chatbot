@@ -1,0 +1,1 @@
+Initially to make the chatbot I followed the steps listed in this [page](https://github.com/tiagoft/NLP/blob/main/deploy_de_bot_no_discord.md). Then I modify the file to meet the material requirements. Finally I put the file to run with nohup in the VM. No difficulties were encountered.

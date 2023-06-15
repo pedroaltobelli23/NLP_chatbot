@@ -1,0 +1,4 @@
+Webcrawling with the !crawl command crawls a url and its links. I put a maximum of 15 requests to not take too long. I also put a timeout of 15 seconds for each request.
+I used beautifulSoup.
+The search I used a function we did in class. The search accepts multiple words and does the sum of the tfidf but the wn_search only accepts one word. I decided to do it this way so I don't have to loop through all the possible synonyms of two or more words.
+The third delivery so far has been the coolest. The webcrawling part was a lot of work but it was very enriching to work with the error handling part.
