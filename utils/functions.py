@@ -14,7 +14,7 @@ from nltk.corpus import wordnet
 from dotenv import load_dotenv,find_dotenv
 import pickle
 import tensorflow as tf
-import openai
+from openai import OpenAI
 
 
 
@@ -23,6 +23,7 @@ load_dotenv(find_dotenv())
 # Environment variables
 CLF = tf.keras.saving.load_model("model/notebooks/model")
 FILE_CLASS_PICKLE = os.getenv('FILE_CLASS_PICKLE')
+GPT_KEY = os.getenv('API_KEY')
 
 class Website:
     def __init__(self,name,url,sentiment_value,text):
@@ -82,6 +83,7 @@ def web_scrapping(url,max_l=10):
     # Doing the webscrapping
     nome_urls = []
     next_urls = [url]
+    list_websites=[]
     l=0
     stop_tag = False
     while next_urls:
@@ -102,7 +104,6 @@ def web_scrapping(url,max_l=10):
                     if not os.path.isfile(FILE_CLASS_PICKLE):
                         with open(FILE_CLASS_PICKLE,"wb") as f:
                             predict_val = CLF.predict([clean_text])[0][1]
-                            predict_val = fixed_sentiment_value(predict_val)
                             # getting the positive value
                             site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip())
                             pickle.dump([site],f)
@@ -115,7 +116,6 @@ def web_scrapping(url,max_l=10):
                                 
                             if stop_tag == False:
                                 predict_val = CLF.predict([clean_text])[0][1]
-                                predict_val = fixed_sentiment_value(predict_val)
                                 # getting the positive porcentage
                                 site = Website(name=name,url=url_now,sentiment_value=predict_val,text=clean_text.strip()) 
                                 list_websites.append(site)
@@ -142,7 +142,7 @@ def web_scrapping(url,max_l=10):
                 print(exc_type, fname, exc_tb.tb_lineno)
                 jumped_urls.append(url_now)
         next_urls.pop(0)
-    return nome_urls,jumped_urls   
+    return list_websites,jumped_urls   
      
 def inverted_index():
     with open(FILE_CLASS_PICKLE,'rb') as f:
@@ -183,19 +183,7 @@ def get_texts_with_word(word):
         res = []
     return res
 
-def get_urls(th):
-    with open(FILE_CLASS_PICKLE,'rb') as f:
-        list_websites = pickle.load(f)
-    
-    urls = []
-    
-    for obj in list_websites:
-        if obj.sentiment_value > th:
-            urls.append(obj.url)
-
-    return urls
-
-def search_words(palavras, indice, th=-1):
+def search_words(palavras, indice, th=0):
     assert type(palavras)==list
     resultado = dict()
     notfounded = []
@@ -215,14 +203,15 @@ def search_words(palavras, indice, th=-1):
         
     return resultado,notfounded,founded_words
 
-def filter_by_th(resultado : dict,th : float = -1):
+def filter_by_th(resultado : dict,th : float = 0):
     new_resultado = dict()
     
     docs_sentiment = get_all_urls_and_positivity()
-    
+    print("Docs sentiment")
+    print(docs_sentiment)
     for key in docs_sentiment.keys() & resultado.keys():
         if docs_sentiment.get(key) > th:
-            new_resultado[key] = resultado.get(key)
+            new_resultado[key] = [resultado.get(key),docs_sentiment.get(key)]
     
     return new_resultado
 
@@ -231,9 +220,21 @@ def get_all_urls_and_positivity():
         list_websites = pickle.load(f)
     
     docs_sentiment = dict()
-    
+
     for obj in list_websites:
         docs_sentiment[obj.url] = obj.sentiment_value
+    return docs_sentiment
+
+def get_all_urls_and_positivity_by_th(th):
+    with open(FILE_CLASS_PICKLE,'rb') as f:
+        list_websites = pickle.load(f)
+    
+    docs_sentiment = dict()
+
+    for obj in list_websites:
+        if obj.sentiment_value > th:
+            docs_sentiment[obj.url] = obj.sentiment_value
+    
     return docs_sentiment
 
 def wn_search_words(palavra : str, indice : dict):
@@ -267,10 +268,8 @@ def wn_search_words(palavra : str, indice : dict):
     res[maior_similar] = s_urlTfidf
     return res
 
-def fixed_sentiment_value(value):
-    return 2*value - 1
-
 def generategpt(texts):
+    generated_text="Error"
     max_prompt = 2000
     each_value = max_prompt // len(texts)
     compressed = []
@@ -278,11 +277,16 @@ def generategpt(texts):
         compressed.append(text[:each_value])
 
     prompt = "\n".join(compressed)
-    
-    response = openai.Completion.create(
-        engine="davinci",  # Specify the ChatGPT model
-        prompt="Create a text using this text: " + prompt,
-        max_tokens=100  # Adjust the maximum number of tokens in the generated response as needed
+    # Create a text using this text:
+    final_prompt = f"Create a text using this text: {prompt}"
+
+    client = OpenAI(api_key=GPT_KEY)
+
+    completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", "content": final_prompt}
+        ]
     )
-    generated_text = response.choices[0].text.strip()
-    return generated_text
+
+    return completion.choices[0].message
